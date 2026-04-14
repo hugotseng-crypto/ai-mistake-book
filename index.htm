@@ -29,9 +29,14 @@
   /* 裁切與預覽 */
   .cropper-container-wrapper { width: 100%; max-height: 60vh; background: #000; margin-bottom: 12px; display: none; border-radius: 12px; overflow: hidden;}
   .cropper-container-wrapper img { max-width: 100%; }
-  .preview-box { width: 100%; min-height: 150px; background: #E5E5EA; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-top: 12px; }
+  .preview-box { width: 100%; min-height: 150px; background: #E5E5EA; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-top: 12px; margin-bottom: 16px; }
   .preview-box img { max-width: 100%; display: block; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 12px; }
+
+  /* 開關區塊 */
+  .toggle-container { display: flex; align-items: center; justify-content: space-between; background: var(--bg); padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; }
+  .toggle-label { font-weight: 700; font-size: 14px; color: var(--label); display: flex; align-items: center; gap: 8px;}
+  .toggle-switch { width: 22px; height: 22px; accent-color: var(--blue); cursor: pointer; }
 
   /* 載入動畫與結果區 */
   #aiLoading { text-align: center; padding: 20px; color: #9333EA; font-weight: 700; display: none; background: #F3E8FF; border-radius: 12px; margin-top: 10px; }
@@ -63,10 +68,15 @@
   </div>
 
   <div class="card" id="processCard" style="display:none;">
-    <div style="font-weight: 700; margin-bottom: 12px;">2. 影像清洗預覽</div>
+    <div style="font-weight: 700; margin-bottom: 12px;">2. 影像預覽與清洗</div>
     <div class="preview-box"><img id="displayImage" src=""></div>
     
-    <div style="margin-top: 16px;">
+    <div class="toggle-container">
+      <label for="enableCleaning" class="toggle-label">✨ 啟用智慧影像清洗</label>
+      <input type="checkbox" id="enableCleaning" class="toggle-switch" checked onchange="applyFilters()">
+    </div>
+
+    <div id="filterControls">
       <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--label2);"><span>🔴 擦除紅筆強度</span></div>
       <input type="range" id="redTolerance" min="1" max="100" value="40" oninput="applyFilters()">
       
@@ -104,7 +114,7 @@
 <script>
   let cropper = null;
   let originalImage = new Image();
-  let aiAnalysisData = []; // 儲存 AI 解析結果
+  let aiAnalysisData = []; 
   const canvas = document.getElementById('processCanvas');
   const ctx = canvas.getContext('2d');
 
@@ -149,27 +159,40 @@
     const width = originalImage.width;
     const height = originalImage.height;
     canvas.width = width; canvas.height = height;
+    
+    // 先畫上原圖
     ctx.drawImage(originalImage, 0, 0, width, height);
     
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-    const redTolerance = 100 - parseInt(document.getElementById('redTolerance').value);
-    const threshold = parseInt(document.getElementById('bwThreshold').value);
+    const enableCleaning = document.getElementById('enableCleaning').checked;
+    const filterControls = document.getElementById('filterControls');
 
-    for (let i = 0; i < data.length; i += 4) {
-      let r = data[i], g = data[i+1], b = data[i+2];
-      if (r > 100 && r > g + redTolerance && r > b + redTolerance) {
-        data[i] = 255; data[i+1] = 255; data[i+2] = 255; continue; 
+    // 如果啟用清洗，才進行像素級運算
+    if (enableCleaning) {
+      filterControls.style.display = 'block'; // 顯示滑桿
+      
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const data = imageData.data;
+      const redTolerance = 100 - parseInt(document.getElementById('redTolerance').value);
+      const threshold = parseInt(document.getElementById('bwThreshold').value);
+
+      for (let i = 0; i < data.length; i += 4) {
+        let r = data[i], g = data[i+1], b = data[i+2];
+        if (r > 100 && r > g + redTolerance && r > b + redTolerance) {
+          data[i] = 255; data[i+1] = 255; data[i+2] = 255; continue; 
+        }
+        let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (gray > threshold) {
+          data[i] = 255; data[i+1] = 255; data[i+2] = 255;
+        } else {
+          data[i] = 0; data[i+1] = 0; data[i+2] = 0;
+        }
       }
-      let gray = 0.299 * r + 0.587 * g + 0.114 * b;
-      if (gray > threshold) {
-        data[i] = 255; data[i+1] = 255; data[i+2] = 255;
-      } else {
-        data[i] = 0; data[i+1] = 0; data[i+2] = 0;
-      }
+      ctx.putImageData(imageData, 0, 0);
+    } else {
+      filterControls.style.display = 'none'; // 隱藏滑桿
     }
-    ctx.putImageData(imageData, 0, 0);
-    // 壓縮為 JPG 傳遞給 AI，避免 Base64 過大
+
+    // 壓縮為 JPG 傳遞給畫面與 AI
     document.getElementById('displayImage').src = canvas.toDataURL('image/jpeg', 0.85);
   }
 
