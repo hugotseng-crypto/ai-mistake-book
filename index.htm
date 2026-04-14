@@ -156,11 +156,21 @@
 
   function applyFilters() {
     if (!originalImage.src) return;
-    const width = originalImage.width;
-    const height = originalImage.height;
-    canvas.width = width; canvas.height = height;
     
-    // 先畫上原圖
+    // 【關鍵修復 1】加入最大解析度限制，防止高畫素手機導致 Base64 體積過大
+    const MAX_WIDTH = 1200;
+    let width = originalImage.width;
+    let height = originalImage.height;
+
+    if (width > MAX_WIDTH) {
+      height = Math.round((height * MAX_WIDTH) / width);
+      width = MAX_WIDTH;
+    }
+
+    canvas.width = width; 
+    canvas.height = height;
+    
+    // 畫上縮放後的原圖
     ctx.drawImage(originalImage, 0, 0, width, height);
     
     const enableCleaning = document.getElementById('enableCleaning').checked;
@@ -168,7 +178,7 @@
 
     // 如果啟用清洗，才進行像素級運算
     if (enableCleaning) {
-      filterControls.style.display = 'block'; // 顯示滑桿
+      filterControls.style.display = 'block'; 
       
       const imageData = ctx.getImageData(0, 0, width, height);
       const data = imageData.data;
@@ -189,11 +199,11 @@
       }
       ctx.putImageData(imageData, 0, 0);
     } else {
-      filterControls.style.display = 'none'; // 隱藏滑桿
+      filterControls.style.display = 'none'; 
     }
 
-    // 壓縮為 JPG 傳遞給畫面與 AI
-    document.getElementById('displayImage').src = canvas.toDataURL('image/jpeg', 0.85);
+    // 【關鍵修復 2】將壓縮品質降為 0.5。肉眼看依然清晰，但檔案大小會暴減，防止 Vercel 超載！
+    document.getElementById('displayImage').src = canvas.toDataURL('image/jpeg', 0.5);
   }
 
   // --- 2. 呼叫 Gemini AI 邏輯 ---
@@ -240,7 +250,6 @@
     });
     contentDiv.innerHTML = html;
     document.getElementById('aiResultCard').style.display = 'block';
-    // 滾動到底部方便檢視
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   }
 
