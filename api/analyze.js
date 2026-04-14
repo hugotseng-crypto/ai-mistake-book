@@ -4,14 +4,16 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   try {
-    // 接收前端傳來的檔案資料與格式 (mimeType)
+    // 接收前端傳來的檔案資料與格式
     const { fileBase64, mimeType } = req.body;
     if (!fileBase64) return res.status(400).json({ error: '找不到檔案' });
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    
+    // 【關鍵修改】：切換回免費額度最高（每分鐘15次）的 gemini-1.5-flash 模型
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // 去除 Base64 標頭 (不管它是 image/jpeg 還是 application/pdf 都能處理)
+    // 去除 Base64 標頭
     const base64Data = fileBase64.replace(/^data:(.*?);base64,/, "");
 
     const prompt = `
@@ -37,6 +39,7 @@ export default async function handler(req, res) {
     const result = await model.generateContent([prompt, ...fileParts]);
     const responseText = result.response.text();
     
+    // 強化版 JSON 提取邏輯
     const match = responseText.match(/\[[\s\S]*\]/);
     if (!match) {
         throw new Error("AI 未回傳有效的 JSON 陣列格式");
