@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     if (!fileBase64) return res.status(400).json({ error: '找不到檔案' });
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     // 去除 Base64 標頭 (不管它是 image/jpeg 還是 application/pdf 都能處理)
     const base64Data = fileBase64.replace(/^data:(.*?);base64,/, "");
