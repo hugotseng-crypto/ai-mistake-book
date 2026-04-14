@@ -26,19 +26,19 @@
   input[type="range"] { width: 100%; margin-bottom: 16px; accent-color: var(--blue); }
   .custom-select { width: 100%; padding: 12px; border-radius: 10px; background: var(--bg); border: 1px solid transparent; font-size: 15px; margin-bottom: 10px; }
 
-  /* 裁切與預覽 */
   .cropper-container-wrapper { width: 100%; max-height: 60vh; background: #000; margin-bottom: 12px; display: none; border-radius: 12px; overflow: hidden;}
   .cropper-container-wrapper img { max-width: 100%; }
   .preview-box { width: 100%; min-height: 150px; background: #E5E5EA; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-top: 12px; margin-bottom: 16px; }
   .preview-box img { max-width: 100%; display: block; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 12px; }
 
-  /* 開關區塊 */
   .toggle-container { display: flex; align-items: center; justify-content: space-between; background: var(--bg); padding: 12px 16px; border-radius: 12px; margin-bottom: 16px; }
   .toggle-label { font-weight: 700; font-size: 14px; color: var(--label); display: flex; align-items: center; gap: 8px;}
   .toggle-switch { width: 22px; height: 22px; accent-color: var(--blue); cursor: pointer; }
 
-  /* 載入動畫與結果區 */
+  /* PDF 預覽專用區塊 */
+  #pdfPreviewBox { display: none; text-align: center; padding: 40px 20px; background: #E5E5EA; border-radius: 12px; margin-bottom: 16px; }
+
   #aiLoading { text-align: center; padding: 20px; color: #9333EA; font-weight: 700; display: none; background: #F3E8FF; border-radius: 12px; margin-top: 10px; }
   .pulse { animation: pulse 1.5s infinite; }
   @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
@@ -52,11 +52,18 @@
 <div class="container">
   
   <div class="card">
-    <div style="font-weight: 700; margin-bottom: 12px;">1. 拍攝考卷或講義</div>
-    <label for="cameraInput" class="btn-primary">📷 拍攝 / 選擇圖片</label>
-    <input type="file" id="cameraInput" accept="image/*" capture="environment">
+    <div style="font-weight: 700; margin-bottom: 12px;">1. 拍攝圖片或匯入 PDF</div>
+    <div style="font-size: 12px; color: var(--label2); margin-bottom: 12px;">※ 支援圖片與 PDF 格式。Office 檔案請先另存為 PDF。</div>
+    
+    <div style="display: flex; gap: 10px;">
+      <label for="cameraInput" class="btn-primary" style="flex: 1; margin-bottom: 0;">📷 拍照</label>
+      <input type="file" id="cameraInput" accept="image/*" capture="environment">
 
-    <div class="cropper-container-wrapper" id="cropperWrapper">
+      <label for="fileInput" class="btn-primary" style="flex: 1; margin-bottom: 0; background: #6C6C70;">📁 檔案匯入</label>
+      <input type="file" id="fileInput" accept="image/*, application/pdf">
+    </div>
+
+    <div class="cropper-container-wrapper" id="cropperWrapper" style="margin-top: 16px;">
       <img id="imageToCrop" src="">
     </div>
     
@@ -68,20 +75,28 @@
   </div>
 
   <div class="card" id="processCard" style="display:none;">
-    <div style="font-weight: 700; margin-bottom: 12px;">2. 影像預覽與清洗</div>
-    <div class="preview-box"><img id="displayImage" src=""></div>
+    <div style="font-weight: 700; margin-bottom: 12px;" id="step2Title">2. 影像預覽與清洗</div>
     
-    <div class="toggle-container">
-      <label for="enableCleaning" class="toggle-label">✨ 啟用智慧影像清洗</label>
-      <input type="checkbox" id="enableCleaning" class="toggle-switch" checked onchange="applyFilters()">
+    <div id="pdfPreviewBox">
+      <div style="font-size: 40px; margin-bottom: 8px;">📄</div>
+      <div id="pdfFilename" style="font-weight: 700; font-size: 16px; word-break: break-all;">document.pdf</div>
+      <div style="color: var(--label2); font-size: 13px; margin-top: 8px;">已就緒，將直接進行全卷分析</div>
     </div>
 
-    <div id="filterControls">
-      <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--label2);"><span>🔴 擦除紅筆強度</span></div>
-      <input type="range" id="redTolerance" min="1" max="100" value="40" oninput="applyFilters()">
+    <div id="imageControlBox">
+      <div class="preview-box"><img id="displayImage" src=""></div>
       
-      <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--label2);"><span>⚫ 去除陰影對比</span></div>
-      <input type="range" id="bwThreshold" min="50" max="220" value="140" oninput="applyFilters()">
+      <div class="toggle-container">
+        <label for="enableCleaning" class="toggle-label">✨ 啟用智慧影像清洗</label>
+        <input type="checkbox" id="enableCleaning" class="toggle-switch" checked onchange="applyFilters()">
+      </div>
+
+      <div id="filterControls">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--label2);"><span>🔴 擦除紅筆強度</span></div>
+        <input type="range" id="redTolerance" min="1" max="100" value="40" oninput="applyFilters()">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--label2);"><span>⚫ 去除陰影對比</span></div>
+        <input type="range" id="bwThreshold" min="50" max="220" value="140" oninput="applyFilters()">
+      </div>
     </div>
 
     <button class="btn-primary" style="background: #9333EA; margin-top: 10px;" id="aiAnalyzeBtn" onclick="analyzeWithAI()">
@@ -92,18 +107,14 @@
 
   <div class="card" id="aiResultCard" style="display:none;">
     <div style="font-weight: 700; margin-bottom: 12px;">3. AI 解析結果與匯出</div>
-    
-    <div id="aiContent" style="background:var(--bg); padding:16px; border-radius:12px; font-size:14px; max-height:350px; overflow-y:auto; margin-bottom:16px;">
-      </div>
+    <div id="aiContent" style="background:var(--bg); padding:16px; border-radius:12px; font-size:14px; max-height:350px; overflow-y:auto; margin-bottom:16px;"></div>
     
     <div style="display: flex; gap: 10px;">
       <select id="exportFormat" class="custom-select" style="flex: 1; margin: 0;">
         <option value="pdf">🖨️ A4 複習卷 (PDF)</option>
         <option value="markdown">📄 筆記格式 (Markdown)</option>
       </select>
-      <button class="btn-primary" style="flex: 1; margin: 0; background: #34C759;" onclick="exportAIResult()">
-        📥 匯出檔案
-      </button>
+      <button class="btn-primary" style="flex: 1; margin: 0; background: #34C759;" onclick="exportAIResult()">📥 匯出檔案</button>
     </div>
   </div>
 
@@ -115,30 +126,64 @@
   let cropper = null;
   let originalImage = new Image();
   let aiAnalysisData = []; 
+  let currentFileBase64 = null; // 儲存 PDF 或圖片的 Base64
+  let currentMimeType = '';     // 儲存檔案類型
+  
   const canvas = document.getElementById('processCanvas');
   const ctx = canvas.getContext('2d');
 
-  // --- 1. 圖片處理邏輯 ---
-  document.getElementById('cameraInput').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    document.getElementById('cropperWrapper').style.display = 'block';
-    document.getElementById('cropperToolbar').style.display = 'flex';
+  function resetUI() {
+    document.getElementById('cropperWrapper').style.display = 'none';
+    document.getElementById('cropperToolbar').style.display = 'none';
     document.getElementById('processCard').style.display = 'none';
     document.getElementById('aiResultCard').style.display = 'none';
+    document.getElementById('pdfPreviewBox').style.display = 'none';
+    document.getElementById('imageControlBox').style.display = 'none';
+    currentFileBase64 = null;
+    currentMimeType = '';
+  }
 
-    const url = URL.createObjectURL(file);
-    const imgElement = document.getElementById('imageToCrop');
-    imgElement.src = url;
-    
-    if (cropper) cropper.destroy();
-    imgElement.onload = () => {
-      cropper = new Cropper(imgElement, {
-        viewMode: 2, dragMode: 'move', autoCropArea: 1, guides: true, cropBoxMovable: true, cropBoxResizable: true
-      });
-    };
-  });
+  // --- 1. 檔案讀取邏輯 (分流處理圖片與 PDF) ---
+  function handleFileSelection(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    resetUI();
+    currentMimeType = file.type;
+
+    // 判斷是否為 PDF
+    if (file.type === 'application/pdf') {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        currentFileBase64 = event.target.result;
+        
+        // 顯示 PDF 專屬介面
+        document.getElementById('processCard').style.display = 'block';
+        document.getElementById('step2Title').textContent = "2. 檔案確認";
+        document.getElementById('pdfPreviewBox').style.display = 'block';
+        document.getElementById('pdfFilename').textContent = file.name;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // 處理圖片 (原有邏輯)
+      document.getElementById('cropperWrapper').style.display = 'block';
+      document.getElementById('cropperToolbar').style.display = 'flex';
+      
+      const url = URL.createObjectURL(file);
+      const imgElement = document.getElementById('imageToCrop');
+      imgElement.src = url;
+      
+      if (cropper) cropper.destroy();
+      imgElement.onload = () => {
+        cropper = new Cropper(imgElement, {
+          viewMode: 2, dragMode: 'move', autoCropArea: 1, guides: true, cropBoxMovable: true, cropBoxResizable: true
+        });
+      };
+    }
+    e.target.value = '';
+  }
+
+  document.getElementById('cameraInput').addEventListener('change', handleFileSelection);
+  document.getElementById('fileInput').addEventListener('change', handleFileSelection);
 
   function rotateImage(degree) { if (cropper) cropper.rotate(degree); }
 
@@ -149,6 +194,8 @@
     document.getElementById('cropperWrapper').style.display = 'none';
     document.getElementById('cropperToolbar').style.display = 'none';
     document.getElementById('processCard').style.display = 'block';
+    document.getElementById('step2Title').textContent = "2. 影像預覽與清洗";
+    document.getElementById('imageControlBox').style.display = 'block';
 
     originalImage.onload = () => applyFilters();
     originalImage.src = croppedCanvas.toDataURL('image/jpeg');
@@ -157,29 +204,19 @@
   function applyFilters() {
     if (!originalImage.src) return;
     
-    // 【關鍵修復 1】加入最大解析度限制，防止高畫素手機導致 Base64 體積過大
     const MAX_WIDTH = 1200;
     let width = originalImage.width;
     let height = originalImage.height;
 
-    if (width > MAX_WIDTH) {
-      height = Math.round((height * MAX_WIDTH) / width);
-      width = MAX_WIDTH;
-    }
-
-    canvas.width = width; 
-    canvas.height = height;
-    
-    // 畫上縮放後的原圖
+    if (width > MAX_WIDTH) { height = Math.round((height * MAX_WIDTH) / width); width = MAX_WIDTH; }
+    canvas.width = width; canvas.height = height;
     ctx.drawImage(originalImage, 0, 0, width, height);
     
     const enableCleaning = document.getElementById('enableCleaning').checked;
     const filterControls = document.getElementById('filterControls');
 
-    // 如果啟用清洗，才進行像素級運算
     if (enableCleaning) {
       filterControls.style.display = 'block'; 
-      
       const imageData = ctx.getImageData(0, 0, width, height);
       const data = imageData.data;
       const redTolerance = 100 - parseInt(document.getElementById('redTolerance').value);
@@ -187,29 +224,23 @@
 
       for (let i = 0; i < data.length; i += 4) {
         let r = data[i], g = data[i+1], b = data[i+2];
-        if (r > 100 && r > g + redTolerance && r > b + redTolerance) {
-          data[i] = 255; data[i+1] = 255; data[i+2] = 255; continue; 
-        }
+        if (r > 100 && r > g + redTolerance && r > b + redTolerance) { data[i] = 255; data[i+1] = 255; data[i+2] = 255; continue; }
         let gray = 0.299 * r + 0.587 * g + 0.114 * b;
-        if (gray > threshold) {
-          data[i] = 255; data[i+1] = 255; data[i+2] = 255;
-        } else {
-          data[i] = 0; data[i+1] = 0; data[i+2] = 0;
-        }
+        if (gray > threshold) { data[i] = 255; data[i+1] = 255; data[i+2] = 255; } else { data[i] = 0; data[i+1] = 0; data[i+2] = 0; }
       }
       ctx.putImageData(imageData, 0, 0);
     } else {
       filterControls.style.display = 'none'; 
     }
 
-    // 【關鍵修復 2】將壓縮品質降為 0.5。肉眼看依然清晰，但檔案大小會暴減，防止 Vercel 超載！
-    document.getElementById('displayImage').src = canvas.toDataURL('image/jpeg', 0.5);
+    currentFileBase64 = canvas.toDataURL('image/jpeg', 0.5);
+    currentMimeType = 'image/jpeg';
+    document.getElementById('displayImage').src = currentFileBase64;
   }
 
   // --- 2. 呼叫 Gemini AI 邏輯 ---
   async function analyzeWithAI() {
-    const imgData = document.getElementById('displayImage').src;
-    if (!imgData) { alert("請先處理圖片！"); return; }
+    if (!currentFileBase64) { alert("請先選擇或處理檔案！"); return; }
 
     document.getElementById('aiAnalyzeBtn').style.display = 'none';
     document.getElementById('aiLoading').style.display = 'block';
@@ -219,7 +250,8 @@
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: imgData })
+        // 【關鍵】同時傳送 Base64 與檔案格式給後端
+        body: JSON.stringify({ fileBase64: currentFileBase64, mimeType: currentMimeType })
       });
 
       const result = await response.json();
@@ -235,6 +267,7 @@
     }
   }
 
+  // 渲染與匯出邏輯保持不變...
   function renderAIResult() {
     const contentDiv = document.getElementById('aiContent');
     let html = '';
@@ -253,7 +286,6 @@
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   }
 
-  // --- 3. 匯出邏輯 ---
   function exportAIResult() {
     const format = document.getElementById('exportFormat').value;
     if (format === 'markdown') exportToMarkdown();
@@ -278,57 +310,31 @@
 
   function exportToPDF() {
     if (aiAnalysisData.length === 0) return;
-    
     const printDiv = document.createElement('div');
     printDiv.style.padding = '30px';
     printDiv.style.fontFamily = 'sans-serif';
     printDiv.style.color = '#333';
-
     let htmlContent = `
       <h2 style="text-align: center; color: #000; margin-bottom: 5px;">AI 錯題解析與重練卷</h2>
       <p style="text-align: center; color: #666; font-size: 12px; margin-bottom: 20px;">生成時間：${new Date().toLocaleString()}</p>
       <hr style="border: 0; border-top: 2px solid #007AFF; margin-bottom: 20px;"/>
     `;
-
     aiAnalysisData.forEach(item => {
       htmlContent += `
         <div style="margin-bottom: 30px; page-break-inside: avoid;">
-          <h3 style="color: #007AFF; margin-bottom: 10px; border-left: 4px solid #007AFF; padding-left: 10px;">
-            ${item.id}
-          </h3>
-          <div style="margin-bottom: 12px;">
-            <strong>【題目內容】</strong>
-            <div style="background: #f9f9f9; padding: 12px; border-radius: 8px; margin-top: 6px; line-height: 1.5;">
-              ${item.content.replace(/\n/g, '<br>')}
-            </div>
-          </div>
-          <div style="margin-bottom: 12px;">
-            <strong>【知識點拆解】</strong>
-            <div style="margin-top: 6px;">
-              ${item.tags.map(t => `<span style="background: #e5e5ea; padding: 4px 10px; border-radius: 4px; font-size: 12px; margin-right: 6px; display: inline-block;">#${t}</span>`).join('')}
-            </div>
-          </div>
-          <div>
-            <strong>【詳細解析】</strong>
-            <div style="margin-top: 6px; line-height: 1.6;">
-              ${item.solution.replace(/\n/g, '<br>')}
-            </div>
-          </div>
+          <h3 style="color: #007AFF; margin-bottom: 10px; border-left: 4px solid #007AFF; padding-left: 10px;">${item.id}</h3>
+          <div style="margin-bottom: 12px;"><strong>【題目內容】</strong><div style="background: #f9f9f9; padding: 12px; border-radius: 8px; margin-top: 6px; line-height: 1.5;">${item.content.replace(/\n/g, '<br>')}</div></div>
+          <div style="margin-bottom: 12px;"><strong>【知識點拆解】</strong><div style="margin-top: 6px;">${item.tags.map(t => `<span style="background: #e5e5ea; padding: 4px 10px; border-radius: 4px; font-size: 12px; margin-right: 6px; display: inline-block;">#${t}</span>`).join('')}</div></div>
+          <div><strong>【詳細解析】</strong><div style="margin-top: 6px; line-height: 1.6;">${item.solution.replace(/\n/g, '<br>')}</div></div>
         </div>
         <hr style="border: 0; border-top: 1px dashed #ccc; margin-bottom: 30px;"/>
       `;
     });
-
     printDiv.innerHTML = htmlContent;
-
     const opt = {
-      margin:       [15, 15, 15, 15],
-      filename:     `AI錯題報告_${new Date().getTime()}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      margin: [15, 15, 15, 15], filename: `AI錯題報告_${new Date().getTime()}.pdf`, image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
-
     html2pdf().set(opt).from(printDiv).save();
   }
 </script>
