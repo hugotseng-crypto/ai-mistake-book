@@ -4,19 +4,19 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   try {
-    const { imageBase64 } = req.body;
-    if (!imageBase64) return res.status(400).json({ error: '找不到圖片' });
+    // 接收前端傳來的檔案資料與格式 (mimeType)
+    const { fileBase64, mimeType } = req.body;
+    if (!fileBase64) return res.status(400).json({ error: '找不到檔案' });
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    
-    // 【關鍵修復】：舊的 1.5 模型已全面退役，必須升級為最新版的 gemini-2.5-flash
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const base64Data = imageBase64.replace(/^data:image\/(png|jpeg|jpg);base64,/, "");
+    // 去除 Base64 標頭 (不管它是 image/jpeg 還是 application/pdf 都能處理)
+    const base64Data = fileBase64.replace(/^data:(.*?);base64,/, "");
 
     const prompt = `
-      你是一位專業的各科教師。請仔細閱讀這張考卷或講義的圖片。
-      請辨識出圖中的「每一道獨立的題目」，並針對每題進行分析。
+      你是一位專業的各科教師。請仔細閱讀這份考卷或講義內容。
+      請辨識出文件中的「每一道獨立的題目」，並針對每題進行分析。
       
       請務必嚴格使用以下 JSON 陣列格式回傳，不要包含任何其他說明文字：
       [
@@ -29,14 +29,14 @@ export default async function handler(req, res) {
       ]
     `;
 
-    const imageParts = [{
-      inlineData: { data: base64Data, mimeType: "image/jpeg" }
+    // 動態設定 mimeType (圖片或 PDF)
+    const fileParts = [{
+      inlineData: { data: base64Data, mimeType: mimeType || "image/jpeg" }
     }];
 
-    const result = await model.generateContent([prompt, ...imageParts]);
+    const result = await model.generateContent([prompt, ...fileParts]);
     const responseText = result.response.text();
     
-    // 強化版 JSON 提取邏輯
     const match = responseText.match(/\[[\s\S]*\]/);
     if (!match) {
         throw new Error("AI 未回傳有效的 JSON 陣列格式");
