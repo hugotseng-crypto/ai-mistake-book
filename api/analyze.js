@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     
     // 【關鍵修改】：切換回免費額度最高（每分鐘15次）的 gemini-1.5-flash 模型
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     // 去除 Base64 標頭
     const base64Data = fileBase64.replace(/^data:(.*?);base64,/, "");
