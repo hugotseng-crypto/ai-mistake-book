@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI 錯題家教</title>
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+  :root { --bg: #F2F2F7; --card: #FFFFFF; --label: #000000; --label2: #6C6C70; --blue: #007AFF; --border: rgba(60,60,67,0.18); }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--label); padding-bottom: 40px; }
+
+  .nav { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,0.88); backdrop-filter: blur(24px); border-bottom: 0.5px solid var(--border); padding: 16px; text-align: center; font-weight: 800; font-size: 18px; }
+  .container { padding: 16px; }
+  .card { background: var(--card); border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; padding: 16px; overflow: hidden; }
+  
+  .btn-primary { width: 100%; background: var(--blue); color: white; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 10px; transition: 0.2s;}
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-icon { background: var(--bg); border: none; padding: 10px; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: 600;}
+  
+  input[type="file"] { display: none; }
+  input[type="range"] { width: 100%; margin-bottom: 16px; accent-color: var(--blue); }
+  .custom-select { width: 100%; padding: 12px; border-radius: 10px; background: var(--bg); border: 1px solid transparent; font-size: 15px; margin-bottom: 10px; }
+
+  /* 裁切與預覽 */
+  .cropper-container-wrapper { width: 100%; max-height: 60vh; background: #000; margin-bottom: 12px; display: none; border-radius: 12px; overflow: hidden;}
+  .cropper-container-wrapper img { max-width: 100%; }
+  .preview-box { width: 100%; min-height: 150px; background: #E5E5EA; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-top: 12px; }
+  .preview-box img { max-width: 100%; display: block; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 12px; }
+
+  /* 載入動畫與結果區 */
+  #aiLoading { text-align: center; padding: 20px; color: #9333EA; font-weight: 700; display: none; background: #F3E8FF; border-radius: 12px; margin-top: 10px; }
+  .pulse { animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+  #processCanvas { display: none; }
+</style>
+</head>
+<body>
+
+<div class="nav">✨ AI 錯題家教</div>
+
+<div class="container">
+  
+  <div class="card">
+    <div style="font-weight: 700; margin-bottom: 12px;">1. 拍攝考卷或講義</div>
+    <label for="cameraInput" class="btn-primary">📷 拍攝 / 選擇圖片</label>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment">
+
+    <div class="cropper-container-wrapper" id="cropperWrapper">
+      <img id="imageToCrop" src="">
+    </div>
+    
+    <div class="toolbar" id="cropperToolbar" style="display: none;">
+      <button class="btn-icon" onclick="rotateImage(-90)">↺ 左轉</button>
+      <button class="btn-icon" onclick="rotateImage(90)">↻ 右轉</button>
+      <button class="btn-primary" style="margin: 0; flex: 2; background: #000;" onclick="confirmCrop()">✂️ 確定範圍</button>
+    </div>
+  </div>
+
+  <div class="card" id="processCard" style="display:none;">
+    <div style="font-weight: 700; margin-bottom: 12px;">2. 影像清洗預覽</div>
+    <div class="preview-box"><img id="displayImage" src=""></div>
+    
+    <div style="margin-top: 16px;">
+      <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--label2);"><span>🔴 擦除紅筆強度</span></div>
+      <input type="range" id="redTolerance" min="1" max="100" value="40" oninput="applyFilters()">
+      
+      <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--label2);"><span>⚫ 去除陰影對比</span></div>
+      <input type="range" id="bwThreshold" min="50" max="220" value="140" oninput="applyFilters()">
+    </div>
+
+    <button class="btn-primary" style="background: #9333EA; margin-top: 10px;" id="aiAnalyzeBtn" onclick="analyzeWithAI()">
+      🧠 AI 全卷解析與知識點拆解
+    </button>
+    <div id="aiLoading" class="pulse">⏳ Gemini 正在深度閱讀考卷中...</div>
+  </div>
+
+  <div class="card" id="aiResultCard" style="display:none;">
+    <div style="font-weight: 700; margin-bottom: 12px;">3. AI 解析結果與匯出</div>
+    
+    <div id="aiContent" style="background:var(--bg); padding:16px; border-radius:12px; font-size:14px; max-height:350px; overflow-y:auto; margin-bottom:16px;">
+      </div>
+    
+    <div style="display: flex; gap: 10px;">
+      <select id="exportFormat" class="custom-select" style="flex: 1; margin: 0;">
+        <option value="pdf">🖨️ A4 複習卷 (PDF)</option>
+        <option value="markdown">📄 筆記格式 (Markdown)</option>
+      </select>
+      <button class="btn-primary" style="flex: 1; margin: 0; background: #34C759;" onclick="exportAIResult()">
+        📥 匯出檔案
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<canvas id="processCanvas"></canvas>
+
+<script>
+  let cropper = null;
+  let originalImage = new Image();
+  let aiAnalysisData = []; // 儲存 AI 解析結果
+  const canvas = document.getElementById('processCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // --- 1. 圖片處理邏輯 ---
+  document.getElementById('cameraInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    document.getElementById('cropperWrapper').style.display = 'block';
+    document.getElementById('cropperToolbar').style.display = 'flex';
+    document.getElementById('processCard').style.display = 'none';
+    document.getElementById('aiResultCard').style.display = 'none';
+
+    const url = URL.createObjectURL(file);
+    const imgElement = document.getElementById('imageToCrop');
+    imgElement.src = url;
+    
+    if (cropper) cropper.destroy();
+    imgElement.onload = () => {
+      cropper = new Cropper(imgElement, {
+        viewMode: 2, dragMode: 'move', autoCropArea: 1, guides: true, cropBoxMovable: true, cropBoxResizable: true
+      });
+    };
+  });
+
+  function rotateImage(degree) { if (cropper) cropper.rotate(degree); }
+
+  function confirmCrop() {
+    if (!cropper) return;
+    const croppedCanvas = cropper.getCroppedCanvas({ maxWidth: 1600, maxHeight: 1600 });
+    
+    document.getElementById('cropperWrapper').style.display = 'none';
+    document.getElementById('cropperToolbar').style.display = 'none';
+    document.getElementById('processCard').style.display = 'block';
+
+    originalImage.onload = () => applyFilters();
+    originalImage.src = croppedCanvas.toDataURL('image/jpeg');
+  }
+
+  function applyFilters() {
+    if (!originalImage.src) return;
+    const width = originalImage.width;
+    const height = originalImage.height;
+    canvas.width = width; canvas.height = height;
+    ctx.drawImage(originalImage, 0, 0, width, height);
+    
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    const redTolerance = 100 - parseInt(document.getElementById('redTolerance').value);
+    const threshold = parseInt(document.getElementById('bwThreshold').value);
+
+    for (let i = 0; i < data.length; i += 4) {
+      let r = data[i], g = data[i+1], b = data[i+2];
+      if (r > 100 && r > g + redTolerance && r > b + redTolerance) {
+        data[i] = 255; data[i+1] = 255; data[i+2] = 255; continue; 
+      }
+      let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (gray > threshold) {
+        data[i] = 255; data[i+1] = 255; data[i+2] = 255;
+      } else {
+        data[i] = 0; data[i+1] = 0; data[i+2] = 0;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+    // 壓縮為 JPG 傳遞給 AI，避免 Base64 過大
+    document.getElementById('displayImage').src = canvas.toDataURL('image/jpeg', 0.85);
+  }
+
+  // --- 2. 呼叫 Gemini AI 邏輯 ---
+  async function analyzeWithAI() {
+    const imgData = document.getElementById('displayImage').src;
+    if (!imgData) { alert("請先處理圖片！"); return; }
+
+    document.getElementById('aiAnalyzeBtn').style.display = 'none';
+    document.getElementById('aiLoading').style.display = 'block';
+    document.getElementById('aiResultCard').style.display = 'none';
+
+    try {
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: imgData })
+      });
+
+      const result = await response.json();
+      if (result.error) throw new Error(result.error);
+
+      aiAnalysisData = result.data;
+      renderAIResult();
+    } catch (err) {
+      alert("分析失敗：" + err.message);
+    } finally {
+      document.getElementById('aiAnalyzeBtn').style.display = 'flex';
+      document.getElementById('aiLoading').style.display = 'none';
+    }
+  }
+
+  function renderAIResult() {
+    const contentDiv = document.getElementById('aiContent');
+    let html = '';
+    aiAnalysisData.forEach(item => {
+      html += `
+        <div style="margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 12px;">
+          <h4 style="color:var(--blue); margin-bottom: 8px;">${item.id}</h4>
+          <div style="margin-bottom: 6px;"><strong>題目：</strong><br>${item.content}</div>
+          <div style="margin-bottom: 6px;"><strong>解析：</strong><br>${item.solution}</div>
+          <div><strong>標籤：</strong> ${item.tags.map(t => `<span style="background:#ddd; padding:2px 6px; border-radius:4px; font-size:12px; margin-right:4px;">#${t}</span>`).join('')}</div>
+        </div>
+      `;
+    });
+    contentDiv.innerHTML = html;
+    document.getElementById('aiResultCard').style.display = 'block';
+    // 滾動到底部方便檢視
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  }
+
+  // --- 3. 匯出邏輯 ---
+  function exportAIResult() {
+    const format = document.getElementById('exportFormat').value;
+    if (format === 'markdown') exportToMarkdown();
+    else if (format === 'pdf') exportToPDF();
+  }
+
+  function exportToMarkdown() {
+    if (aiAnalysisData.length === 0) return;
+    let mdContent = `# AI 錯題解析報告\n\n匯出時間：${new Date().toLocaleString()}\n\n---\n\n`;
+    aiAnalysisData.forEach(item => {
+      mdContent += `### ${item.id}\n\n`;
+      mdContent += `**【題目內容】**\n${item.content}\n\n`;
+      mdContent += `**【知識點】**\n${item.tags.map(t => '`' + t + '`').join(' ')}\n\n`;
+      mdContent += `**【詳細解析】**\n${item.solution}\n\n---\n\n`;
+    });
+    const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `AI錯題解析_${new Date().getTime()}.md`;
+    a.click();
+  }
+
+  function exportToPDF() {
+    if (aiAnalysisData.length === 0) return;
+    
+    const printDiv = document.createElement('div');
+    printDiv.style.padding = '30px';
+    printDiv.style.fontFamily = 'sans-serif';
+    printDiv.style.color = '#333';
+
+    let htmlContent = `
+      <h2 style="text-align: center; color: #000; margin-bottom: 5px;">AI 錯題解析與重練卷</h2>
+      <p style="text-align: center; color: #666; font-size: 12px; margin-bottom: 20px;">生成時間：${new Date().toLocaleString()}</p>
+      <hr style="border: 0; border-top: 2px solid #007AFF; margin-bottom: 20px;"/>
+    `;
+
+    aiAnalysisData.forEach(item => {
+      htmlContent += `
+        <div style="margin-bottom: 30px; page-break-inside: avoid;">
+          <h3 style="color: #007AFF; margin-bottom: 10px; border-left: 4px solid #007AFF; padding-left: 10px;">
+            ${item.id}
+          </h3>
+          <div style="margin-bottom: 12px;">
+            <strong>【題目內容】</strong>
+            <div style="background: #f9f9f9; padding: 12px; border-radius: 8px; margin-top: 6px; line-height: 1.5;">
+              ${item.content.replace(/\n/g, '<br>')}
+            </div>
+          </div>
+          <div style="margin-bottom: 12px;">
+            <strong>【知識點拆解】</strong>
+            <div style="margin-top: 6px;">
+              ${item.tags.map(t => `<span style="background: #e5e5ea; padding: 4px 10px; border-radius: 4px; font-size: 12px; margin-right: 6px; display: inline-block;">#${t}</span>`).join('')}
+            </div>
+          </div>
+          <div>
+            <strong>【詳細解析】</strong>
+            <div style="margin-top: 6px; line-height: 1.6;">
+              ${item.solution.replace(/\n/g, '<br>')}
+            </div>
+          </div>
+        </div>
+        <hr style="border: 0; border-top: 1px dashed #ccc; margin-bottom: 30px;"/>
+      `;
+    });
+
+    printDiv.innerHTML = htmlContent;
+
+    const opt = {
+      margin:       [15, 15, 15, 15],
+      filename:     `AI錯題報告_${new Date().getTime()}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(printDiv).save();
+  }
+</script>
+</body>
+</html>
