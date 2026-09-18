@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     if (!fileBase64) return res.status(400).json({ error: '找不到檔案' });
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
     const base64Data = fileBase64.replace(/^data:(.*?);base64,/, '');
 
     const prompt = `你是老師。圖片裡主要是「一題」錯題或不會的題。
@@ -34,6 +34,8 @@ export default async function handler(req, res) {
     res.status(200).json({ data: JSON.parse(match[0]) });
   } catch (error) {
     console.error('Gemini API Error:', error);
-    res.status(500).json({ error: '分析失敗: ' + (error.message || '未知錯誤') });
+    const raw = error && error.message ? String(error.message) : '未知錯誤';
+    const shortMsg = raw.includes('404') ? '模型不可用，請稍後再試' : raw.slice(0, 120);
+    res.status(500).json({ error: '分析失敗：' + shortMsg });
   }
 }
